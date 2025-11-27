@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Action Items Management Dashboard</title>
+<style>
+:root {
+  --primary-color: #1e3a5f;
+  --secondary-color: #43a047;
+  --warning-color: #fb8c00;
+  --danger-color: #e53935;
+  --light-bg: #f7f9fc;
+  --white: #ffffff;
+  --border-color: #e2e8f0;
+  --text-light: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: var(--light-bg);
+  padding: 20px;
+  color: #333;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.dashboard-title {
+  color: var(--primary-color);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.dashboard-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.control-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary-color);
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.control-btn:hover {
+  background: #2c5282;
+}
+
+.control-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.stats-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--white);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-light);
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
+#sheet-table-container {
+  background: var(--white);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-wrapper {
+  min-width: 1200px;
+  width: 100%;
+}
+
+#sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 1200px;
+}
+
+#sheet-table thead {
+  background-color: var(--primary-color);
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#sheet-table th, 
+#sheet-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+#sheet-table tbody tr:hover {
+  background: #f0f4fa;
+}
+
+#sheet-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-light);
+}
+
+.error {
+  text-align: center;
+  padding: 40px;
+  color: var(--danger-color);
+  background: var(--white);
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.success-message {
+  text-align: center;
+  padding: 15px;
+  color: var(--secondary-color);
+  background: #dcfce7;
+  border-radius: 6px;
+  margin: 10px 0;
+  border: 1px solid #bbf7d0;
+  font-weight: 600;
+}
+
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
+  display: inline-block;
+  text-align: center;
+  min-width: 70px;
+}
+
+.badge-done { background: var(--secondary-color); }
+.badge-not-done { background: var(--warning-color); }
+.badge-pending { background: #6b7280; }
+
+.due-date.overdue { color: var(--danger-color); font-weight: bold; }
+.due-date.today { color: var(--warning-color); font-weight: bold; }
+.due-date.future { color: var(--secondary-color); }
+
+.email-cc span {
+  display: inline-block;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  margin: 1px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+@keyframes refreshSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.refreshing {
+  animation: refreshSpin 1s linear infinite;
+}
+
+.success-count {
+  background: var(--secondary-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-left: 10px;
+}
+</style>
+</head>
+<body>
+
+<!-- Dashboard Header -->
+<div class="dashboard-header">
+  <div class="dashboard-title">📋 Action Items Management Dashboard</div>
+  <div class="dashboard-controls">
+    <button class="control-btn" onclick="loadData()" id="refreshBtn">
+      🔄 Refresh Data
+    </button>
+  </div>
+</div>
+
+
+<!-- Statistics -->
+<div class="stats-container" id="statsContainer">
+  <div class="stat-card">
+    <div class="stat-number" id="totalItems">-</div>
+    <div class="stat-label">Total Items</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-number" id="pendingItems">-</div>
+    <div class="stat-label">Pending</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-number" id="completedItems">-</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-number" id="overdueItems">-</div>
+    <div class="stat-label">Overdue</div>
+  </div>
+</div>
+
+<!-- Data Table -->
+<div id="sheet-table-container">
+  <div class="table-wrapper">
+    <table id="sheet-table">
+      <thead>
+        <tr>
+          <th>SL</th>
+          <th>Category</th>
+          <th>Oversight Manager</th>
+          <th>Action Item</th>
+          <th>Responsible Person</th>
+          <th>Designation</th>
+          <th>Email</th>
+          <th>CC Emails</th>
+          <th>Due Date</th>
+          <th>Reminder Days</th>
+          <th>Reminder Sent</th>
+          <th>Status</th>
+          <th>Comments</th>
+        </tr>
+      </thead>
+      <tbody id="sheet-table-body">
+        <tr>
+          <td colspan="13" class="loading">Loading data from database...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const SUPABASE_CONFIG = {
+  URL: "https://woklvqytrxauxosurmyv.supabase.co",
+  API_KEY: "YOUR_ANON_KEY"  //your api key
+};
+
+let allData = [];
+const SUPABASE_API_URL = `${SUPABASE_CONFIG.URL}/rest/v1/transport_plan_dhaka`;
+
+function showSuccessMessage(count) {
+  const successMessage = document.getElementById('successMessage');
+  const recordCount = document.getElementById('recordCount');
+  
+  if (successMessage && recordCount) {
+    recordCount.textContent = count;
+    successMessage.style.display = 'block';
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      successMessage.style.display = 'none';
+    }, 5000);
+  }
+}
+
+function hideSuccessMessage() {
+  const successMessage = document.getElementById('successMessage');
+  if (successMessage) {
+    successMessage.style.display = 'none';
+  }
+}
+
+// Fetch data without any sorting
+async function fetchFromSupabase() {
+  const url = `${SUPABASE_API_URL}?select=*`; // Removed order=due_date.asc
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_CONFIG.API_KEY}`,
+        'apikey': SUPABASE_CONFIG.API_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+    
+  } catch (error) {
+    console.error('Supabase fetch error:', error);
+    throw error;
+  }
+}
+
+async function loadData() {
+  const refreshBtn = document.getElementById('refreshBtn');
+  const tbody = document.getElementById("sheet-table-body");
+  
+  if (!refreshBtn || !tbody) {
+    console.error('Required elements not found');
+    return;
+  }
+  
+  refreshBtn.disabled = true;
+  refreshBtn.classList.add('refreshing');
+  hideSuccessMessage();
+  
+  tbody.innerHTML = '<tr><td colspan="13" class="loading">Loading data from database...</td></tr>';
+  
+  try {
+    const data = await fetchFromSupabase();
+    
+    if (data && Array.isArray(data)) {
+      allData = data;
+      renderTable();
+      updateStatistics();
+      showSuccessMessage(data.length);
+    } else {
+      throw new Error('No data received from database');
+    }
+    
+  } catch (error) {
+    console.error('Error loading data:', error);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="13" class="error">
+          ❌ Failed to load data from database<br><br>
+          <strong>Error:</strong> ${error.message}<br><br>
+          <button class="control-btn" onclick="loadData()" style="margin-top: 10px;">
+            Try Again
+          </button>
+        </td>
+      </tr>
+    `;
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.classList.remove('refreshing');
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById("sheet-table-body");
+  
+  if (!tbody) return;
+  
+  if (!allData.length) {
+    tbody.innerHTML = '<tr><td colspan="13" class="loading">No data available in database</td></tr>';
+    return;
+  }
+  
+  // Generate SL numbers starting from 1, in the exact order from database
+  tbody.innerHTML = allData.map((item, index) => `
+    <tr>
+      <td><strong>${index + 1}</strong></td>
+      <td>${item.checklist_category || ''}</td>
+      <td>${item.oversight_manager || ''}</td>
+      <td>${item.action_item || ''}</td>
+      <td>${item.responsible_person_name || ''}</td>
+      <td>${item.responsible_person_designation || ''}</td>
+      <td>${item.responsible_person_email || ''}</td>
+      <td class="email-cc">${formatCCEmails(item.reminder_cc_email)}</td>
+      <td>${formatDueDate(item.due_date)}</td>
+      <td>${item.reminder_days || ''}</td>
+      <td>${formatReminderStatus(item.reminder_sent, item.reminder_count)}</td>
+      <td>${createStatusBadge(item.status)}</td>
+      <td>${item.comments || ''}</td>
+    </tr>
+  `).join('');
+}
+
+function formatDueDate(dateString) {
+  if (!dateString) return '';
+  try {
+    const dueDate = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+    const timeDiff = dueDateOnly.getTime() - today.getTime();
+    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    let cssClass = 'due-date';
+    if (dayDiff < 0) cssClass += ' overdue';
+    else if (dayDiff === 0) cssClass += ' today';
+    else cssClass += ' future';
+    
+    const formattedDate = dueDate.toLocaleDateString('en-GB');
+    return `<span class="${cssClass}">${formattedDate}</span>`;
+  } catch (e) {
+    return dateString;
+  }
+}
+
+function formatCCEmails(ccEmails) {
+  if (!ccEmails) return '';
+  const emails = ccEmails.split(',').map(email => email.trim()).filter(email => email);
+  return emails.map(email => `<span>${email}</span>`).join('');
+}
+
+function formatReminderStatus(reminderSent, reminderCount) {
+  if (reminderSent === "Yes") {
+    return `<span style="color: var(--secondary-color); font-weight: bold;">Yes (${reminderCount || 0})</span>`;
+  }
+  return `<span style="color: var(--warning-color);">No</span>`;
+}
+
+function createStatusBadge(status) {
+  if (!status) return '<span class="badge badge-pending">Unknown</span>';
+  const s = status.trim().toLowerCase();
+  if (s === "done") return '<span class="badge badge-done">Done</span>';
+  if (s === "not done") return '<span class="badge badge-not-done">Not Done</span>';
+  return '<span class="badge badge-pending">Pending</span>';
+}
+
+function updateStatistics() {
+  try {
+    const today = new Date();
+    
+    const totalItems = allData.length;
+    const pendingItems = allData.filter(item => 
+      item.status?.toLowerCase() !== "done"
+    ).length;
+    const completedItems = allData.filter(item => 
+      item.status?.toLowerCase() === "done"
+    ).length;
+    const overdueItems = allData.filter(item => {
+      if (!item.due_date || item.status?.toLowerCase() === "done") return false;
+      try {
+        const dueDate = new Date(item.due_date);
+        return dueDate < today;
+      } catch (e) {
+        return false;
+      }
+    }).length;
+
+    document.getElementById('totalItems').textContent = totalItems;
+    document.getElementById('pendingItems').textContent = pendingItems;
+    document.getElementById('completedItems').textContent = completedItems;
+    document.getElementById('overdueItems').textContent = overdueItems;
+    
+  } catch (error) {
+    console.error('Error updating statistics:', error);
+  }
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 Initializing dashboard...');
+  loadData();
+  
+  // Auto-refresh every 2 minutes
+  setInterval(() => {
+    if (!document.hidden) {
+      console.log('🔄 Auto-refreshing data...');
+      loadData();
+    }
+  }, 120000);
+});
+
+// Refresh when tab becomes visible
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    loadData();
+  }
+});
+</script>
+</body>
+</html>
